@@ -1,0 +1,11 @@
+import {readFileSync} from 'node:fs';
+const config=JSON.parse(readFileSync(new URL('../wrangler.jsonc',import.meta.url),'utf8'));
+const errors=[];
+if(!/^https:\/\/sso\.domislink\.com\/?$/.test(config.vars?.SSO_ISSUER||''))errors.push('Unexpected SSO issuer');
+if(config.vars?.SSO_JWKS_URL!=='https://sso.domislink.com/.well-known/jwks.json')errors.push('JWKS URL needs explicit review');
+if(config.vars?.REGISTRY_AUDIENCE!=='domislink-central-services-registry')errors.push('Registry audience mismatch');
+const databases=config.d1_databases||[];
+if(databases.length!==1||databases[0].binding!=='DB')errors.push('Expected one DB binding');
+if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(databases[0]?.database_id||''))errors.push('Real D1 database UUID required; placeholder is not deployable');
+if(!config.main||!config.compatibility_date)errors.push('Worker entrypoint and compatibility date required');
+if(errors.length){console.error('DEPLOYMENT BLOCKED:\n- '+errors.join('\n- '));process.exitCode=1}else console.log('Static deployment configuration gate passed. Live SSO/D1 checks are still required.');
