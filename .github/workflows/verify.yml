@@ -1,0 +1,24 @@
+name: Registry verification
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Run contract tests
+        run: npm test
+      - name: Check Worker syntax
+        run: node --check src/index.js
+      - name: Build Worker (no deployment)
+        run: npx wrangler deploy --dry-run --outdir .wrangler-dry-run
