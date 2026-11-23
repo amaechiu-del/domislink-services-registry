@@ -9,6 +9,6 @@ export async function verifyRegistryToken(token,env,options={}){
  if(!payload.sub||typeof payload.sub!=='string'||!protectedHeader.kid)throw new Error('Missing subject or key id');
  return payload;
 }
-const scopes=p=>typeof p?.scope==='string'?p.scope.split(/\\s+/):[];
+const scopes=p=>typeof p?.scope==='string'?p.scope.split(/\s+/):[];
 export const canManageServices=p=>Array.isArray(p?.roles)&&p.roles.includes('domislink:services:admin')&&scopes(p).includes('services:write');
 export const canReadServices=p=>canManageServices(p)||scopes(p).includes('services:read');
