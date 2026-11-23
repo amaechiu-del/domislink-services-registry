@@ -1,6 +1,6 @@
 # Central Services Registry API
 
-Independent Cloudflare Worker + D1 service **within the OneLink monorepo temporarily**. This is **not** the existing OIDC client registry and **not** a new SSO provider. Future repository extraction requires no new authentication system.
+Independent Cloudflare Worker + D1 service in its **own GitHub repository**. This is **not** the OneLink OIDC client registry and **not** a new SSO provider. OneLink hosts the administrator interface and consumes this API only after existing SSO authorization is verified.
 
 ## Routes
 - `GET /health`: unauthenticated process liveness, not database or provider health.
@@ -16,7 +16,7 @@ Verify JWT against the **existing** `https://sso.domislink.com` issuer and its p
 ## Provisioning (not yet performed)
 1. Create Cloudflare D1 database `domislink-central-services-db`.
 2. Replace placeholder `database_id` in `wrangler.jsonc` with actual UUID.
-3. From this service directory run `npm install`, `npm test`, `npx wrangler d1 migrations apply domislink-central-services-db --remote`, `npm run deploy` after contract verification.
+3. From the repository root run `npm install`, `npm test`, `npx wrangler d1 migrations apply domislink-central-services-db --remote`, `npm run deploy` after contract verification.
 4. Use a service-specific audience and grant only minimum SSO scopes; restrict operator permissions and audit events.
 
 ## Next security and product work
