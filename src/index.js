@@ -1,13 +1,11 @@
-import {createRemoteJWKSet,jwtVerify} from 'jose';
+import {verifyRegistryToken,canReadServices,canManageServices} from './security.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
 const invalid=()=>json({error:'Unauthorized'},401);
 const allowedId=s=>typeof s==='string'&&/^[a-z][a-z0-9-]{1,63}$/.test(s);
 const allowedUrl=s=>s==null||(typeof s==='string'&&s.startsWith('https://')&&(()=>{try{const u=new URL(s);return !u.username&&!u.password&&!u.hash}catch{return false}})());
-const roles=payload=>Array.isArray(payload.roles)?payload.roles:[];
-const scopes=payload=>typeof payload.scope==='string'?payload.scope.split(' '):[];
-const requireAdmin=payload=>roles(payload).includes('domislink:services:admin')&&scopes(payload).includes('services:write');
-const requireReader=payload=>requireAdmin(payload)||scopes(payload).includes('services:read');
-async function authenticate(request,env){const header=request.headers.get('authorization')||'';if(!header.startsWith('Bearer '))return null;const token=header.slice(7);if(!env.SSO_ISSUER||!env.SSO_JWKS_URL||!env.REGISTRY_AUDIENCE)return null;try{const {payload}=await jwtVerify(token,createRemoteJWKSet(new URL(env.SSO_JWKS_URL)),{issuer:env.SSO_ISSUER,audience:env.REGISTRY_AUDIENCE,algorithms:['RS256','ES256']});return typeof payload.sub==='string'&&payload.sub?payload:null}catch{return null}}
+const requireAdmin=canManageServices;
+const requireReader=canReadServices;
+async function authenticate(request,env){const header=request.headers.get('authorization')||'';if(!/^Bearer [^\\s]+$/.test(header))return null;try{return await verifyRegistryToken(header.slice(7),env)}catch{return null}}
 function auditStatement(db,actor,action,target,detail){return db.prepare('INSERT INTO audit_events (id,actor_sub,action,target_id,detail) VALUES (?,?,?,?,?)').bind(crypto.randomUUID(),actor,action,target,JSON.stringify(detail))}
 async function auditedBatch(db,mutation,actor,action,target,detail){if(typeof db.batch!=='function')throw new Error('D1 batch unavailable');return db.batch([mutation,auditStatement(db,actor,action,target,detail)])}
 export default {async fetch(request,env){const u=new URL(request.url);if(u.pathname==='/health'&&request.method==='GET')return json({ok:true,service:'domislink-central-services-registry',database:'not checked'});if(!u.pathname.startsWith('/v1/'))return json({error:'Not found'},404);if(!env.DB)return json({error:'Database not configured'},503);const actor=await authenticate(request,env);if(!actor)return invalid();if(!requireReader(actor))return json({error:'Forbidden'},403);
