@@ -12,6 +12,6 @@
   },
   "devDependencies": {
     "wrangler": "^4.0.0",
-    "miniflare": "^4.20261101.0"
+    "miniflare": "^4.0.0"
   }
 }
