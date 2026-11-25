@@ -1,0 +1,11 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {emailPreflight} from "../sdk/communications-preflight.mjs";
+import {resourceInventory} from "../sdk/resource-inventory.mjs";
+import {deploymentObservation} from "../sdk/deployment-observation.mjs";
+import {onboardingPlan} from "../sdk/onboarding-plan.mjs";
+test("consent adapter uses private binding and never authorizes delivery",async()=>{const r=await emailPreflight({fetch:async req=>{assert.equal(new URL(req.url).pathname,"/v1/email/consent/preflight");assert.deepEqual(await req.json(),{app:"church",audience:"members",channel:"email"});return Response.json({app:"church",audience:"members",total:3,eligible:1,unsubscribed:1});}},{app:"church",audience:"members"});assert.equal(r.delivery_authorized,false);});
+test("consent adapter rejects mismatched audience",async()=>{await assert.rejects(emailPreflight({fetch:async()=>Response.json({app:"other",audience:"members",total:1,eligible:1,unsubscribed:0})},{app:"church",audience:"members"}));});
+test("inventory flags cross environment reuse",()=>{const r=resourceInventory(["staging","production"].map(environment=>({application:"church",kind:"d1",resource_id:"same-db",environment})));assert.equal(r[1].warning,"cross_environment_reuse");});
+test("deployment observation never authorizes release",()=>{const r=deploymentObservation({repository:"amaechiu-del/domislink-church",commit:"a".repeat(40),environment:"staging",state:"success"});assert.equal(r.live_verified,false);assert.equal(r.release_authorized,false);});
+test("onboarding includes selected central services without activation",()=>{const r=onboardingPlan({id:"church",environment:"staging",payments:true,messaging:true});assert.ok(r.integrations.some(i=>i.service==="pay"));assert.ok(r.integrations.some(i=>i.service==="communications"));assert.equal(r.paid_activation_authorized,false);});
