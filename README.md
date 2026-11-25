@@ -4,8 +4,8 @@ Independent Cloudflare Worker + D1 service in its **own GitHub repository**. Thi
 
 ## Routes
 - `GET /health`: unauthenticated process liveness, not database or provider health.
-- `GET /v1/services`: authenticated service inventory, `services:read` scope or administrator role + write scope.
-- `GET /v1/services/:id`: authenticated service metadata.
+- `GET /v1/services`: authenticated service inventory. Use `q` to search IDs, names and repositories. Combine it with exact `category`, `lifecycle` and `environment` filters. Set `limit` from 1 to 250 (default 250), then pass the returned `nextCursor` as `cursor` with the same filters. A null cursor marks the final page.
+- `GET /v1/services/:id`: authenticated service metadata, direct dependencies and the latest recorded health status and timestamp. Health is null until an observation exists.
 - `POST /v1/services`: authenticated admin creation, audited.
 - `GET /v1/approvals`: authenticated admin list.
 - `POST /v1/approvals`: authenticated admin approval *request*, not grant; creates `requested` state only.
@@ -20,6 +20,8 @@ Verify JWT against the **existing** `https://sso.domislink.com` issuer and its p
 4. Use a service-specific audience and grant only minimum SSO scopes; restrict operator permissions and audit events.
 
 ## Next security and product work
-Implement SSO integration acceptance tests; enforce transactionally coupled audit writes; approval decision/revocation with separation of duties; explicit health probe allowlist and scheduler; pagination and rate limiting; robust input limits, per-tenant authorization if introduced; CSRF protection for any future cookie-authenticated frontend; D1 database integration tests; production observability. Do not expose this API publicly for administration until these controls are verified.
+Implement SSO integration acceptance tests; approval decision/revocation with separation of duties; explicit health probe allowlist and scheduler; rate limiting; robust input limits, per-tenant authorization if introduced; CSRF protection for any future cookie-authenticated frontend; D1 database integration tests; production observability. Do not expose this API publicly for administration until these controls are verified.
 
-**Status:** Source committed; no tests, D1 provisioning, deployment, live token verification or production health checks claimed.
+**Verification:** Run the local suite with Node.js 24 and `npm test`. Live token verification and Cloudflare provisioning are pending.
+
+The registry owns service metadata and dependency records. DomisLink Control Centre can consume these authenticated API routes for its operational views. DomisLink.com remains the public headquarters.
