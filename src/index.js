@@ -7,7 +7,20 @@ const roles=payload=>Array.isArray(payload.roles)?payload.roles:[];
 const scopes=payload=>typeof payload.scope==='string'?payload.scope.split(' '):[];
 const requireAdmin=payload=>roles(payload).includes('domislink:services:admin')&&scopes(payload).includes('services:write');
 const requireReader=payload=>requireAdmin(payload)||scopes(payload).includes('services:read');
-async function authenticate(request,env){const header=request.headers.get('authorization')||'';if(!header.startsWith('Bearer '))return null;const token=header.slice(7);if(!env.SSO_ISSUER||!env.SSO_JWKS_URL||!env.REGISTRY_AUDIENCE)return null;try{const {payload}=await jwtVerify(token,createRemoteJWKSet(new URL(env.SSO_JWKS_URL)),{issuer:env.SSO_ISSUER,audience:env.REGISTRY_AUDIENCE,algorithms:['RS256','ES256']});return typeof payload.sub==='string'&&payload.sub?payload:null}catch{return null}}
+const jwksCache=new Map();
+export async function authenticate(request,env){
+ const header=request.headers.get('authorization')||'';
+ if(!header.startsWith('Bearer ')||header.length>16384)return null;
+ const issuer=env.SSO_ISSUER;
+ const expected=env.APP_ENV==='staging'?'https://domislink-sso-registry-staging.amaechi-u.workers.dev':'https://sso.domislink.com';
+ if(issuer!==expected||env.SSO_JWKS_URL!==expected+'/oauth/jwks'||env.REGISTRY_AUDIENCE!=='domislink-central-services-registry')return null;
+ try{
+  let keys=jwksCache.get(issuer);
+  if(!keys){keys=createRemoteJWKSet(new URL(env.SSO_JWKS_URL));jwksCache.set(issuer,keys);}
+  const {payload}=await jwtVerify(header.slice(7),keys,{issuer,audience:env.REGISTRY_AUDIENCE,algorithms:['RS256'],requiredClaims:['sub','exp','nbf','iat','jti']});
+  return typeof payload.sub==='string'&&payload.sub.trim()&&payload.aud===env.REGISTRY_AUDIENCE&&Number.isInteger(payload.exp)&&Number.isInteger(payload.nbf)&&Number.isInteger(payload.iat)&&payload.iat<=Math.floor(Date.now()/1000)&&payload.exp-payload.nbf===900&&typeof payload.jti==='string'&&payload.jti?payload:null;
+ }catch{return null;}
+}
 async function audit(db,actor,action,target,detail){await db.prepare('INSERT INTO audit_events (id,actor_sub,action,target_id,detail) VALUES (?,?,?,?,?)').bind(crypto.randomUUID(),actor,action,target,JSON.stringify(detail)).run()}
 export default {async fetch(request,env){const u=new URL(request.url);if(u.pathname==='/health'&&request.method==='GET')return json({ok:true,service:'domislink-central-services-registry',database:'not checked'});if(!u.pathname.startsWith('/v1/'))return json({error:'Not found'},404);if(!env.DB)return json({error:'Database not configured'},503);const actor=await authenticate(request,env);if(!actor)return invalid();if(!requireReader(actor))return json({error:'Forbidden'},403);
 try{
