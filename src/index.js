@@ -5,8 +5,8 @@ const allowedId=s=>typeof s==='string'&&/^[a-z][a-z0-9-]{1,63}$/.test(s);
 const allowedUrl=s=>s==null||(typeof s==='string'&&s.startsWith('https://')&&(()=>{try{const u=new URL(s);return !u.username&&!u.password&&!u.hash}catch{return false}})());
 const roles=payload=>Array.isArray(payload.roles)?payload.roles:[];
 const scopes=payload=>typeof payload.scope==='string'?payload.scope.split(' '):[];
-const requireAdmin=payload=>roles(payload).includes('domislink:services:admin')&&scopes(payload).includes('services:write');
-const requireReader=payload=>requireAdmin(payload)||scopes(payload).includes('services:read');
+export const requireAdmin=payload=>roles(payload).includes('domislink:services:admin')&&scopes(payload).includes('services:write');
+export const requireReader=payload=>requireAdmin(payload)||scopes(payload).includes('services:read');
 const jwksCache=new Map();
 export async function authenticate(request,env){
  const header=request.headers.get('authorization')||'';
@@ -17,8 +17,13 @@ export async function authenticate(request,env){
  try{
   let keys=jwksCache.get(issuer);
   if(!keys){keys=createRemoteJWKSet(new URL(env.SSO_JWKS_URL));jwksCache.set(issuer,keys);}
-  const {payload}=await jwtVerify(header.slice(7),keys,{issuer,audience:env.REGISTRY_AUDIENCE,algorithms:['RS256'],requiredClaims:['sub','exp','nbf','iat','jti']});
-  return typeof payload.sub==='string'&&payload.sub.trim()&&payload.aud===env.REGISTRY_AUDIENCE&&Number.isInteger(payload.exp)&&Number.isInteger(payload.nbf)&&Number.isInteger(payload.iat)&&payload.iat<=Math.floor(Date.now()/1000)&&payload.exp-payload.nbf===900&&typeof payload.jti==='string'&&payload.jti?payload:null;
+  return await verifyRegistryToken(header.slice(7),keys,issuer,env.REGISTRY_AUDIENCE);
+ }catch{return null;}
+}
+export async function verifyRegistryToken(token,keys,issuer,audience){
+ try{
+  const {payload}=await jwtVerify(token,keys,{issuer,audience:audience,algorithms:['RS256'],requiredClaims:['sub','exp','nbf','iat','jti']});
+  return typeof payload.sub==='string'&&payload.sub.trim()&&payload.aud===audience&&Number.isInteger(payload.exp)&&Number.isInteger(payload.nbf)&&Number.isInteger(payload.iat)&&payload.iat<=Math.floor(Date.now()/1000)&&payload.exp-payload.nbf===900&&typeof payload.jti==='string'&&payload.jti?payload:null;
  }catch{return null;}
 }
 function audit(db,actor,action,target,detail){return db.prepare('INSERT INTO audit_events (id,actor_sub,action,target_id,detail) VALUES (?,?,?,?,?)').bind(crypto.randomUUID(),actor,action,target,JSON.stringify(detail))}
