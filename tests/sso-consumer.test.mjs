@@ -1,0 +1,12 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {authenticate} from "../src/index.js";
+const issuer="https://domislink-sso-registry-staging.amaechi-u.workers.dev";
+const env={APP_ENV:"staging",SSO_ISSUER:issuer,SSO_JWKS_URL:issuer+"/oauth/jwks",REGISTRY_AUDIENCE:"domislink-central-services-registry"};
+const request=(token)=>new Request("https://registry.example.test/v1/services",{headers:token?{Authorization:"Bearer "+token}:{}});
+test("anonymous requests are rejected",async()=>assert.equal(await authenticate(request(),env),null));
+test("opaque access tokens are rejected",async()=>assert.equal(await authenticate(request("opaque-token"),env),null));
+test("production issuer is rejected in staging",async()=>assert.equal(await authenticate(request("opaque"),{...env,SSO_ISSUER:"https://sso.domislink.com"}),null));
+test("untrusted JWKS URL is rejected",async()=>assert.equal(await authenticate(request("opaque"),{...env,SSO_JWKS_URL:"https://example.test/jwks"}),null));
+test("incorrect audience configuration is rejected",async()=>assert.equal(await authenticate(request("opaque"),{...env,REGISTRY_AUDIENCE:"other"}),null));
+test("oversized bearer is rejected",async()=>assert.equal(await authenticate(request("a".repeat(17000)),env),null));
