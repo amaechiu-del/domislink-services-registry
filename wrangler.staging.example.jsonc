@@ -1,0 +1,20 @@
+{
+  "name": "domislink-services-registry-staging",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "vars": {
+    "SSO_ISSUER": "https://REPLACE_WITH_STAGING_GATEWAY_HOST",
+    "SSO_JWKS_URL": "https://REPLACE_WITH_STAGING_GATEWAY_HOST/oauth/jwks",
+    "REGISTRY_AUDIENCE": "domislink-central-services-registry"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "domislink-services-registry-staging-db",
+      "database_id": "REPLACE_WITH_STAGING_D1_UUID",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
