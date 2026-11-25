@@ -34,5 +34,19 @@ if(u.pathname==='/v1/services'&&request.method==='POST'){if(!requireAdmin(actor)
 const match=u.pathname.match(/^\/v1\/services\/([a-z][a-z0-9-]{1,63})$/);if(match&&request.method==='GET'){const row=await env.DB.prepare('SELECT * FROM services WHERE id=?').bind(match[1]).first();return row?json({service:row}):json({error:'Not found'},404)}
 if(u.pathname==='/v1/approvals'&&request.method==='GET'){if(!requireAdmin(actor))return json({error:'Forbidden'},403);const r=await env.DB.prepare('SELECT id,service_id,client_id,requested_scopes,state,requested_by,decided_by,created_at,decided_at FROM integration_approvals ORDER BY created_at DESC LIMIT 100').all();return json({approvals:r.results})}
 if(u.pathname==='/v1/approvals'&&request.method==='POST'){if(!requireAdmin(actor))return json({error:'Forbidden'},403);let b;try{b=await request.json()}catch{return json({error:'Invalid JSON'},400)}if(!allowedId(b?.serviceId)||typeof b.clientId!=='string'||!/^[-\w.:]{2,120}$/.test(b.clientId)||!Array.isArray(b.scopes)||b.scopes.length<1||b.scopes.length>20||!b.scopes.every(s=>typeof s==='string'&&/^[a-z][\w:.-]{0,63}$/.test(s)))return json({error:'Invalid approval request'},400);const id=crypto.randomUUID();await env.DB.batch([env.DB.prepare("INSERT INTO integration_approvals (id,service_id,client_id,requested_scopes,state,requested_by) VALUES (?,?,?,?,'requested',?)").bind(id,b.serviceId,b.clientId,JSON.stringify(b.scopes),actor.sub),audit(env.DB,actor.sub,'approval.requested',id,{serviceId:b.serviceId,clientId:b.clientId})]);return json({id,state:'requested'},201)}
+const decision=u.pathname.match(/^\/v1\/approvals\/([a-f0-9-]{36})\/decision$/);
+if(decision&&request.method==='POST'){
+ if(!requireAdmin(actor))return json({error:'Forbidden'},403);
+ let b;try{b=await request.json()}catch{return json({error:'Invalid JSON'},400)}
+ if(!['approved','rejected','revoked'].includes(b?.state))return json({error:'Invalid decision'},400);
+ const id=decision[1], previous=b.state==='revoked'?'approved':'requested';
+ const eventId=crypto.randomUUID();
+ const results=await env.DB.batch([
+ env.DB.prepare("UPDATE integration_approvals SET state=?,decided_by=?,decided_at=CURRENT_TIMESTAMP WHERE id=? AND state=? AND requested_by<>?").bind(b.state,actor.sub,id,previous,actor.sub),
+ env.DB.prepare("INSERT INTO audit_events (id,actor_sub,action,target_id,detail) SELECT ?,?,?,?,? WHERE changes()=1").bind(eventId,actor.sub,'approval.'+b.state,id,JSON.stringify({previous,state:b.state}))
+ ]);
+ if(results[0].meta.changes!==1)return json({error:'Decision conflict or separation of duties violation'},409);
+ return json({id,state:b.state});
+}
 return json({error:'Not found'},404)
 }catch(e){return json({error:'Request failed; check service configuration'},500)}}};
