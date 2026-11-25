@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DomisLink repository consolidation inventory",
+  "type": "object",
+  "required": [
+    "repository",
+    "decision",
+    "evidence",
+    "reviewStatus"
+  ],
+  "properties": {
+    "repository": {
+      "type": "string",
+      "pattern": "^amaechiu-del/[A-Za-z0-9_.-]+$"
+    },
+    "canonicalServiceId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "decision": {
+      "enum": [
+        "KEEP",
+        "INTEGRATE",
+        "MIGRATE",
+        "MERGE",
+        "ARCHIVE_CANDIDATE",
+        "DELETE_CANDIDATE",
+        "INVESTIGATE"
+      ]
+    },
+    "reviewStatus": {
+      "enum": [
+        "preliminary",
+        "source-reviewed",
+        "deployment-verified",
+        "approved"
+      ]
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "dependsOn": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "cloudflareWorkers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "d1Bindings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "r2Bindings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "migrationDestination": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rollbackPlan": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "approval": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}
