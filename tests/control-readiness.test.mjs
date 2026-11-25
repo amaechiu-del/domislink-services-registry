@@ -1,0 +1,11 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {accountHealth} from "../sdk/account-health.mjs";
+import {releaseReadiness} from "../sdk/release-readiness.mjs";
+const now=Date.parse("2026-11-25T00:00:00Z");
+test("unknown account metadata is not healthy",()=>{const r=accountHealth({},now);assert.ok(r.warnings.includes("quota_unverified"));assert.equal(r.live_verified,false);});
+test("expiry and unapproved cost warnings",()=>{const r=accountHealth({card_expiry_review_date:"2026-11-24",domain_renewal_date:"2026-12-01",plan:"paid",quota_used_percent:90,account_status:"active"},now);for(const w of ["card_review_due","domain_renewal_due_within_30_days","paid_plan_requires_review","quota_near_or_over_limit"])assert.ok(r.warnings.includes(w));});
+const commit="a".repeat(40);
+const evidence=Object.fromEntries(["tests","tenant_isolation","authentication","database_migration","rollback","cost_review","dependency_review"].map(k=>[k,{status:"pass",commit,reference:"local-report"}]));
+test("complete evidence allows review but never deployment",()=>{const r=releaseReadiness({commit,evidence,requester:"a",reviewer:"b"});assert.equal(r.ready_for_manual_review,true);assert.equal(r.production_authorized,false);});
+test("stale evidence and self review block readiness",()=>{const r=releaseReadiness({commit:"b".repeat(40),evidence,requester:"a",reviewer:"a"});assert.equal(r.ready_for_manual_review,false);assert.ok(r.blockers.includes("tests"));assert.ok(r.blockers.includes("independent_review_required"));});
