@@ -4,7 +4,7 @@
   "compatibility_date": "2026-11-01",
   "vars": {
     "SSO_ISSUER": "https://sso.domislink.com",
-    "SSO_JWKS_URL": "https://sso.domislink.com/.well-known/jwks.json",
+    "SSO_JWKS_URL": "https://sso.domislink.com/oauth/jwks",
     "REGISTRY_AUDIENCE": "domislink-central-services-registry"
   },
   "d1_databases": [{ "binding": "DB", "database_name": "domislink-central-services-db", "database_id": "REPLACE_WITH_REAL_D1_DATABASE_ID", "migrations_dir": "migrations" }]
